@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: admission
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cert-injector
+  namespace: admission
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cert-injector
+  template:
+    metadata:
+      labels:
+        app: cert-injector
+    spec:
+      containers:
+      - name: cert-injector
+        image: andrewstuart/cert-injector
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 1
+            memory: 200Mi
+        ports:
+        - containerPort: 8443
+        volumeMounts:
+        - name: cert
+          mountPath: /cert
+      volumes: 
+      - name: cert
+        secret:
+          secretName: injector.admission.svc.cluster.local.tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cert-injector
+  namespace: admission
+spec:
+  ports:
+  - port: 443
+    targetPort: 8443
+  selector:
+    app: cert-injector
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: injector-mwh-cert
+  namespace: admission
+spec:
+  secretName: injector.admission.svc.cluster.local.tls
+  dnsNames:
+  - cert-injector.admission.svc.cluster.local
+  - cert-injector.admission.svc
+  issuerRef:
+    name: vault # Replace this issuer with your own issuer
+    kind: ClusterIssuer
