@@ -16,10 +16,10 @@ var (
 func setupConfig() *viper.Viper {
 	cfg := viper.New()
 	cfg.AddConfigPath(".")
-	cfg.AddConfigPath("$HOME/cert-injector")
-	cfg.AddConfigPath("/etc/cert-injector")
+	cfg.AddConfigPath("$HOME/ca-injector")
+	cfg.AddConfigPath("/etc/ca-injector")
 
-	cfg.SetConfigName("cert-injector")
+	cfg.SetConfigName("ca-injector")
 	cfg.SetEnvPrefix("CERT-INJECTOR")
 
 	cfg.AutomaticEnv()

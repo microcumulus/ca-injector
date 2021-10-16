@@ -1,4 +1,4 @@
-module github.com/microcumulus/cert-injector
+module github.com/microcumulus/ca-injector
 
 go 1.15
 

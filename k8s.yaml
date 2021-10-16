@@ -27,7 +27,7 @@ spec:
       serviceAccount: injector
       containers:
       - name: ca-injector
-        image: andrewstuart/cert-injector
+        image: andrewstuart/ca-injector
         imagePullPolicy: Always
         resources:
           requests:

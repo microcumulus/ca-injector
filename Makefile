@@ -1,5 +1,5 @@
-APP=cert-injector
-IMAGE=cert-injector
+APP=ca-injector
+IMAGE=ca-injector
 DOCKER_ROOT?=andrewstuart
 NAMESPACE=admission
 
