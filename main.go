@@ -32,7 +32,10 @@ func first(ss ...string) string {
 	return ""
 }
 
-const label = "microcumul.us/injectssl"
+const (
+	label      = "microcumul.us/injectssl"
+	volumeName = "microcumulus-injected-ssl"
+)
 
 type p struct {
 	Op    string      `json:"op"`
@@ -74,7 +77,7 @@ func main() {
 			Op:   "add",
 			Path: "/spec/volumes/-",
 			Value: m{
-				"name": "ssl",
+				"name": volumeName,
 				"secret": m{
 					"secretName": pod.Annotations[label],
 				},
@@ -91,9 +94,16 @@ func main() {
 				},
 			}, {
 				Op:   "add",
+				Path: fmt.Sprintf("/spec/containers/%d/env/-", i),
+				Value: m{
+					"name":  "NODE_EXTRA_CA_CERTS",
+					"value": "/ssl/ca.crt",
+				},
+			}, {
+				Op:   "add",
 				Path: fmt.Sprintf("/spec/containers/%d/volumeMounts/-", i),
 				Value: m{
-					"name":      "ssl",
+					"name":      volumeName,
 					"mountPath": "/ssl",
 					"readOnly":  true,
 				},

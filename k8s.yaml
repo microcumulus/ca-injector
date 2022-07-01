@@ -7,13 +7,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: injector
-  namespace: ca-injector
+  namespace: admission
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ca-injector
-  namespace: ca-injector
+  namespace: admission
 spec:
   replicas: 1
   selector:
@@ -44,13 +44,13 @@ spec:
       volumes: 
       - name: cert
         secret:
-          secretName: injector.ca-injector.svc.cluster.local.tls
+          secretName: injector.admission.cluster.local.tls
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ca-injector
-  namespace: ca-injector
+  namespace: admission
 spec:
   ports:
   - port: 443
@@ -62,12 +62,12 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: injector-mwh-cert
-  namespace: ca-injector
+  namespace: admission
 spec:
-  secretName: injector.ca-injector.svc.cluster.local.tls
+  secretName: injector.admission.cluster.local.tls
   dnsNames:
-  - ca-injector.ca-injector.svc.cluster.local
-  - ca-injector.ca-injector.svc
+  - ca-injector.admission.svc.cluster.local
+  - ca-injector.admission
   issuerRef:
     name: vault # Replace this issuer with your own issuer
     kind: ClusterIssuer
@@ -82,6 +82,7 @@ rules:
   resources:
   - pods
   verbs:
+  - read
   - list
   - delete
 ---
@@ -96,4 +97,4 @@ roleRef:
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: User
-  name: system:serviceaccount:ca-injector:injector
+  name: system:serviceaccount:admission:injector
