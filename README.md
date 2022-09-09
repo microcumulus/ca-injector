@@ -23,3 +23,7 @@ with the key `ca.crt` (`kubectl create secret generic foo-crt
 --from-file=ca.crt=my-bundle.crt`), and use the `microcumul.us/injectssl:
 foo-crt` annotation on your pod or in your helm chart's appropriate annotations
 section.
+
+I highly suggest using this with
+[replicator](https://github.com/mittwald/kubernetes-replicator) for a consistent
+experience across namespaces.

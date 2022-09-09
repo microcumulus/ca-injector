@@ -44,7 +44,7 @@ spec:
       volumes: 
       - name: cert
         secret:
-          secretName: injector.admission.cluster.local.tls
+          secretName: injector.admission.svc.cluster.local.tls
 ---
 apiVersion: v1
 kind: Service
@@ -64,9 +64,10 @@ metadata:
   name: injector-mwh-cert
   namespace: admission
 spec:
-  secretName: injector.admission.cluster.local.tls
+  secretName: injector.admission.svc.cluster.local.tls
   dnsNames:
   - ca-injector.admission.svc.cluster.local
+  - ca-injector.admission.svc
   - ca-injector.admission
   issuerRef:
     name: vault # Replace this issuer with your own issuer

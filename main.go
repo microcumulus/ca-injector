@@ -49,7 +49,7 @@ func main() {
 
 	http.Handle("/pods", admitFunc(func(ar admv1.AdmissionReview) (res *admv1.AdmissionResponse, err error) {
 		var pod corev1.Pod
-		_, _, err = codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, &pod)
+		obj, _, err := codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, &pod)
 		if err != nil {
 			if err != nil {
 				lg.WithError(err).Error("could not deserialize pod spec")
@@ -57,11 +57,22 @@ func main() {
 			}
 		}
 
+		lg := lg.WithFields(logrus.Fields{
+			"ar.Request.Name":                        ar.Request.Name,
+			"ar.Request.Namespace":                   ar.Request.Namespace,
+			"pod.Name":                               pod.Name,
+			"pod.Namespace":                          pod.Namespace,
+			"pod.CreationTimestamp":                  pod.CreationTimestamp.Time,
+			"obj.GetObjectKind().GroupVersionKind()": obj.GetObjectKind().GroupVersionKind(),
+		})
+
 		if pod.Annotations[label] == "" {
+			lg.Info("allowing")
 			return &admv1.AdmissionResponse{
 				Allowed: true,
 			}, nil
 		}
+		lg.Info("will patch")
 
 		var patch []p
 		if pod.Spec.Volumes == nil {
@@ -197,6 +208,8 @@ func main() {
 			s.Shutdown(context.Background())
 		}
 	}()
+
+	lg.Info("listening")
 
 	lg.Fatal(s.ListenAndServeTLS("/cert/tls.crt", "/cert/tls.key"))
 }
