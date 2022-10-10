@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +64,22 @@ var (
 )
 
 func main() {
-	setupConfig()
+	cfg := setupConfig()
+
+	f, err := os.OpenFile(cfg.GetString("tls.crt"), os.O_RDONLY, 0400)
+	if err != nil {
+		lg.WithError(err).Fatal("could not read tls cert for serving and to check expiry")
+	}
+
+	cert, err := getFirstExpiringCert(f)
+	if err != nil {
+		lg.WithError(err).Fatal("could not read cert end date for certificate")
+	}
+	go func() {
+		time.Sleep(time.Until(cert.NotAfter))
+		ioutil.WriteFile("/dev/termination-log", []byte("shutting down due to expired certificate, hoping it has been refreshed"), 0600)
+		lg.Fatal("cert expired; shutting down")
+	}()
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/pods", admitFunc(func(ar admv1.AdmissionReview) (res *admv1.AdmissionResponse, err error) {
@@ -265,5 +284,28 @@ func main() {
 
 	lg.Info("listening")
 
-	lg.Fatal(s.ListenAndServeTLS("/cert/tls.crt", "/cert/tls.key"))
+	lg.Fatal(s.ListenAndServeTLS(cfg.GetString("tls.crt"), cfg.GetString("tls.key")))
+}
+
+func getFirstExpiringCert(r io.Reader) (*x509.Certificate, error) {
+	bs, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("error getting bytes for cert: %w", err)
+	}
+
+	var first *x509.Certificate
+	for {
+		var blk *pem.Block
+		blk, bs = pem.Decode(bs)
+		if blk == nil {
+			return first, nil
+		}
+		cert, err := x509.ParseCertificate(blk.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing cert in chain: %w", err)
+		}
+		if first == nil || cert.NotAfter.Before(first.NotAfter) {
+			first = cert
+		}
+	}
 }

@@ -23,6 +23,11 @@ spec:
     metadata:
       labels:
         app: ca-injector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/endpoint: "/metrics"
+        prometheus.io/port: "8443"
+        prometheus.io/protocol: https
     spec:
       serviceAccount: injector
       containers:
@@ -68,7 +73,6 @@ spec:
   dnsNames:
   - ca-injector.admission.svc.cluster.local
   - ca-injector.admission.svc
-  - ca-injector.admission
   issuerRef:
     name: vault # Replace this issuer with your own issuer
     kind: ClusterIssuer
@@ -86,6 +90,12 @@ rules:
   - read
   - list
   - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

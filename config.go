@@ -20,10 +20,12 @@ func setupConfig() *viper.Viper {
 	cfg.AddConfigPath("/etc/ca-injector")
 
 	cfg.SetConfigName("ca-injector")
-	cfg.SetEnvPrefix("CERT-INJECTOR")
 
 	cfg.AutomaticEnv()
 	cfg.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	cfg.SetDefault("tls.key", "/cert/tls.key")
+	cfg.SetDefault("tls.crt", "/cert/tls.crt")
 
 	if err := cfg.ReadInConfig(); err != nil {
 		lg.WithError(err).Error("could not read initial config")
