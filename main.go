@@ -11,6 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	admv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,9 +47,22 @@ type p struct {
 }
 type m map[string]interface{}
 
+var (
+	ctrDeletes = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "certinjector_pods_deleted",
+		Help: "The number of pods deleted by the certinjector pod",
+	}, []string{"namespace", "name"})
+
+	ctrPatches = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "certinjector_pods_mutated",
+		Help: "The number of pods mutated by the certinjector webhook",
+	}, []string{"namespace", "name"})
+)
+
 func main() {
 	setupConfig()
 
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/pods", admitFunc(func(ar admv1.AdmissionReview) (res *admv1.AdmissionResponse, err error) {
 		var pod corev1.Pod
 		obj, _, err := codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, &pod)
@@ -138,6 +154,7 @@ func main() {
 			patch = append(patch, ps...)
 		}
 
+		ctrPatches.WithLabelValues(pod.Namespace, pod.Name).Inc()
 		lg.WithField("patch", patch).Info("patching")
 
 		bs, _ := json.Marshal(patch)
@@ -160,29 +177,66 @@ func main() {
 
 	go func() {
 		time.Sleep(5 * time.Second)
+
 		f := false
 		for {
 			if f {
 				time.Sleep(60 * time.Second)
 			}
 			f = true
+
 			ctx := context.TODO()
 			cs := kubernetes.NewForConfigOrDie(conf)
 			pods, err := cs.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 			if err != nil {
 				logrus.WithError(err).Fatal("error listing pods")
 			}
+
 		items:
 			for _, pod := range pods.Items {
+				lg := lg.WithFields(logrus.Fields{
+					"pod.Name":      pod.Name,
+					"pod.Namespace": pod.Namespace,
+				})
+
+				or := corev1.ObjectReference{
+					Kind:            pod.Kind,
+					Namespace:       pod.Namespace,
+					Name:            pod.Name,
+					UID:             pod.UID,
+					APIVersion:      pod.APIVersion,
+					ResourceVersion: pod.ResourceVersion,
+				}
+
+				if len(pod.OwnerReferences) > 0 {
+					or = corev1.ObjectReference{
+						Kind:       pod.OwnerReferences[0].Kind,
+						Namespace:  pod.Namespace,
+						Name:       pod.OwnerReferences[0].Name,
+						UID:        pod.OwnerReferences[0].UID,
+						APIVersion: pod.OwnerReferences[0].APIVersion,
+					}
+				}
+
+				cs.CoreV1().Events(pod.Namespace).Create(ctx, &corev1.Event{
+					InvolvedObject: or,
+					Reason:         "Deleting pod",
+					Message:        fmt.Sprintf("pod annotation on %q has not been applied by ca-injector mutatingadmissionwebhook", pod.Name),
+				}, metav1.CreateOptions{})
 				secret := pod.Annotations[label]
 				if secret == "" {
 					continue
 				}
+
+				// Look for well-known volume in list of mounts
 				for _, vol := range pod.Spec.Volumes {
 					if vol.Secret != nil && vol.Secret.SecretName == secret {
 						continue items
 					}
 				}
+
+				lg.Info("deleting pod; CA env and mount not found")
+				ctrDeletes.WithLabelValues(pod.Namespace, pod.Name).Inc()
 				err := cs.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 				if err != nil {
 					logrus.WithError(err).WithField("pod", pod.Name).Error("error deleting pod")

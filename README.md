@@ -27,3 +27,10 @@ section.
 I highly suggest using this with
 [replicator](https://github.com/mittwald/kubernetes-replicator) for a consistent
 experience across namespaces.
+
+# Installation
+
+```golang
+kubectl apply -f k8s.yaml
+kubectl apply -f mwh.yaml
+```
