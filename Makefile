@@ -1,9 +1,10 @@
 APP=ca-injector
 IMAGE=ca-injector
+TAG?=latest
 DOCKER_ROOT?=andrewstuart
 NAMESPACE=admission
 
-FQTAG=$(DOCKER_ROOT)/$(IMAGE)
+FQTAG=$(DOCKER_ROOT)/$(IMAGE):$(TAG)
 
 SHA=$(shell docker inspect --format "{{ index .RepoDigests 0 }}" $(1))
 
