@@ -241,14 +241,14 @@ func main() {
 
 				secret := pod.Annotations[label]
 				if secret == "" {
-					lg.Info("did not find annotation " + label)
+					lg.Debug("did not find annotation " + label)
 					continue
 				}
 
 				// Look for well-known volume in list of mounts
 				for _, vol := range pod.Spec.Volumes {
 					if vol.Secret != nil && vol.Secret.SecretName == secret && vol.Name == volumeName {
-						lg.Info("found volume matching secret from annotation")
+						lg.Debug("found volume matching secret from annotation")
 						continue items
 					}
 				}
