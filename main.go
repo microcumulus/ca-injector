@@ -173,7 +173,7 @@ func main() {
 			patch = append(patch, ps...)
 		}
 
-		ctrPatches.WithLabelValues(pod.Namespace, pod.Name).Inc()
+		ctrPatches.WithLabelValues(pod.Namespace, pod.GenerateName).Inc()
 		lg.WithField("patch", patch).Info("patching")
 
 		bs, _ := json.Marshal(patch)
@@ -270,7 +270,7 @@ func main() {
 					lg.WithError(err).Error("error generating pod deletion event")
 				}
 
-				ctrDeletes.WithLabelValues(pod.Namespace, pod.Name).Inc()
+				ctrDeletes.WithLabelValues(pod.Namespace, pod.GenerateName).Inc()
 
 				err := cs.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 				if err != nil {
