@@ -60,7 +60,7 @@ var (
 	ctrPatches = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ca_injector_pods_mutated",
 		Help: "The number of pods mutated by the ca-injector webhook",
-	}, []string{"namespace", "name"})
+	}, []string{"namespace"})
 )
 
 func main() {
@@ -173,7 +173,7 @@ func main() {
 			patch = append(patch, ps...)
 		}
 
-		ctrPatches.WithLabelValues(pod.Namespace, pod.GenerateName).Inc()
+		ctrPatches.WithLabelValues(ar.Request.Name).Inc()
 		lg.WithField("patch", patch).Info("patching")
 
 		bs, _ := json.Marshal(patch)
