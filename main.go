@@ -263,7 +263,7 @@ func main() {
 					ReportingController: "ca-injector",
 					InvolvedObject:      or,
 					Reason:              "CertAuthorityMissing",
-					Message:             fmt.Sprintf("pod annotation on %q has not been applied by ca-injector mutatingadmissionwebhook", pod.Name),
+					Message:             fmt.Sprintf("pod annotation on %q has not been applied by ca-injector mutatingadmissionwebhook; pod will be deleted", pod.Name),
 					Type:                "Warning",
 				}, metav1.CreateOptions{})
 				if err != nil {
