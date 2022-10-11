@@ -23,11 +23,6 @@ spec:
     metadata:
       labels:
         app: ca-injector
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/endpoint: "/metrics"
-        prometheus.io/port: "8443"
-        prometheus.io/protocol: https
     spec:
       serviceAccount: injector
       containers:
@@ -56,6 +51,12 @@ kind: Service
 metadata:
   name: ca-injector
   namespace: admission
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/scheme: https
+    prometheus.io/address: ca-injector.admission.svc.cluster.local
+    # prometheus.io/port: "8443"
 spec:
   ports:
   - port: 443

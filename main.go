@@ -53,13 +53,13 @@ type m map[string]interface{}
 
 var (
 	ctrDeletes = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "certinjector_pods_deleted",
-		Help: "The number of pods deleted by the certinjector pod",
+		Name: "ca_injector_pods_deleted",
+		Help: "The number of pods deleted by the ca-injector pod",
 	}, []string{"namespace", "name"})
 
 	ctrPatches = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "certinjector_pods_mutated",
-		Help: "The number of pods mutated by the certinjector webhook",
+		Name: "ca_injector_pods_mutated",
+		Help: "The number of pods mutated by the ca-injector webhook",
 	}, []string{"namespace", "name"})
 )
 
@@ -211,6 +211,8 @@ func main() {
 				logrus.WithError(err).Fatal("error listing pods")
 			}
 
+			lg.WithField("len(pods.Items)", len(pods.Items)).Info("got pod list")
+
 		items:
 			for _, pod := range pods.Items {
 				lg := lg.WithFields(logrus.Fields{
@@ -237,25 +239,38 @@ func main() {
 					}
 				}
 
-				cs.CoreV1().Events(pod.Namespace).Create(ctx, &corev1.Event{
-					InvolvedObject: or,
-					Reason:         "Deleting pod",
-					Message:        fmt.Sprintf("pod annotation on %q has not been applied by ca-injector mutatingadmissionwebhook", pod.Name),
-				}, metav1.CreateOptions{})
 				secret := pod.Annotations[label]
 				if secret == "" {
+					lg.Info("did not find annotation " + label)
 					continue
 				}
 
 				// Look for well-known volume in list of mounts
 				for _, vol := range pod.Spec.Volumes {
-					if vol.Secret != nil && vol.Secret.SecretName == secret {
+					if vol.Secret != nil && vol.Secret.SecretName == secret && vol.Name == volumeName {
+						lg.Info("found volume matching secret from annotation")
 						continue items
 					}
 				}
 
-				lg.Info("deleting pod; CA env and mount not found")
+				lg.Info("deleting pod; CA mount not found")
+
+				_, err = cs.CoreV1().Events(pod.Namespace).Create(ctx, &corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "ca-injector-delete-",
+					},
+					ReportingController: "ca-injector",
+					InvolvedObject:      or,
+					Reason:              "CertAuthorityMissing",
+					Message:             fmt.Sprintf("pod annotation on %q has not been applied by ca-injector mutatingadmissionwebhook", pod.Name),
+					Type:                "Warning",
+				}, metav1.CreateOptions{})
+				if err != nil {
+					lg.WithError(err).Error("error generating pod deletion event")
+				}
+
 				ctrDeletes.WithLabelValues(pod.Namespace, pod.Name).Inc()
+
 				err := cs.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 				if err != nil {
 					logrus.WithError(err).WithField("pod", pod.Name).Error("error deleting pod")
