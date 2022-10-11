@@ -259,6 +259,7 @@ func main() {
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "ca-injector-delete-",
 					},
+					LastTimestamp:       metav1.Now(),
 					ReportingController: "ca-injector",
 					InvolvedObject:      or,
 					Reason:              "CertAuthorityMissing",
