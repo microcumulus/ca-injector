@@ -1,0 +1,26 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: ca-injector.microcumul.us
+webhooks:
+- name: ca-injector.microcumul.us
+  admissionReviewVersions:
+    - v1
+  sideEffects: NoneOnDryRun
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  failurePolicy: Ignore
+  clientConfig:
+    caBundle: ""
+    service:
+      namespace: {{ .Release.Namespace }} 
+      name: {{ include "ca-injector.fullname" . }}
+      path: /pods
+--- 
