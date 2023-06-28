@@ -22,15 +22,18 @@ Just deploy this in your cluster, create CA bundles as e.g. `foo-crt` secret,
 with the key `ca.crt` (`kubectl create secret generic foo-crt
 --from-file=ca.crt=my-bundle.crt`), and use the `microcumul.us/injectssl:
 foo-crt` annotation on your pod or in your helm chart's appropriate annotations
-section.
+section. `ca.crt` can be changed by setting `tls.ca.key` in any of the typical
+ways (config files at `/etc/ca-injector.yaml`, `$HOME/.config/ca-injector.yaml`,
+or `TLS_CA_KEY` env var all work). 
 
 I highly suggest using this with
 [replicator](https://github.com/mittwald/kubernetes-replicator) for a consistent
-experience across namespaces.
+experience across namespaces. Another great tool that may work well for building
+the bundle here is [trust-manager](https://github.com/cert-manager/trust-manager).
 
 # Installation
 
-```golang
+```bash
 kubectl apply -f k8s.yaml
 kubectl apply -f mwh.yaml
 ```

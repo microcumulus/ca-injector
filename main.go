@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
 	"time"
 
@@ -26,30 +27,20 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func secsSince(t time.Time) float64 {
-	return float64(time.Since(t)) / float64(time.Second)
-}
-
-func first(ss ...string) string {
-	for _, s := range ss {
-		if s != "" {
-			return s
-		}
-	}
-	return ""
-}
-
 const (
 	label      = "microcumul.us/injectssl"
 	volumeName = "microcumulus-injected-ssl"
 )
 
+// Type for less ugly jsonpatch
 type p struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value,omitempty"`
 }
-type m map[string]interface{}
+
+// We make lots of these.
+type m map[string]any
 
 var (
 	ctrDeletes = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -65,6 +56,8 @@ var (
 
 func main() {
 	cfg := setupConfig()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	f, err := os.OpenFile(cfg.GetString("tls.crt"), os.O_RDONLY, 0400)
 	if err != nil {
@@ -75,13 +68,18 @@ func main() {
 	if err != nil {
 		lg.WithError(err).Fatal("could not read cert end date for certificate")
 	}
+
 	go func() {
 		time.Sleep(time.Until(cert.NotAfter))
 		ioutil.WriteFile("/dev/termination-log", []byte("shutting down due to expired certificate, hoping it has been refreshed"), 0600)
 		lg.Fatal("cert expired; shutting down")
 	}()
 
+	sslFileName := path.Join("/ssl", cfg.GetString("tls.ca.key"))
+	lg.WithField("file", sslFileName).Info("generated ssl filename")
+
 	http.Handle("/metrics", promhttp.Handler())
+
 	http.Handle("/pods", admitFunc(func(ar admv1.AdmissionReview) (res *admv1.AdmissionResponse, err error) {
 		var pod corev1.Pod
 		obj, _, err := codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, &pod)
@@ -114,11 +112,10 @@ func main() {
 			patch = append(patch, p{
 				Op:    "add",
 				Path:  "/spec/volumes",
-				Value: []interface{}{}, // add array if none
+				Value: []any{}, // add array if none
 			})
 		}
 
-		// TODO add documentation that the secret needs to have `ca.crt` key/value
 		patch = append(patch, p{
 			Op:   "add",
 			Path: "/spec/volumes/-",
@@ -136,14 +133,14 @@ func main() {
 				Path: fmt.Sprintf("/spec/containers/%d/env/-", i),
 				Value: m{
 					"name":  "SSL_CERT_FILE",
-					"value": "/ssl/ca.crt",
+					"value": sslFileName,
 				},
 			}, {
 				Op:   "add",
 				Path: fmt.Sprintf("/spec/containers/%d/env/-", i),
 				Value: m{
 					"name":  "NODE_EXTRA_CA_CERTS",
-					"value": "/ssl/ca.crt",
+					"value": sslFileName,
 				},
 			}, {
 				Op:   "add",
@@ -159,14 +156,14 @@ func main() {
 				ps = append([]p{{
 					Op:    "add",
 					Path:  fmt.Sprintf("/spec/containers/%d/env", i),
-					Value: []interface{}{}, //add the array if none
+					Value: []any{}, //add the array if none
 				}}, ps...)
 			}
 			if len(ctr.VolumeMounts) == 0 {
 				ps = append([]p{{
 					Op:    "add",
 					Path:  fmt.Sprintf("/spec/containers/%d/volumeMounts", i),
-					Value: []interface{}{}, //add the array if none
+					Value: []any{}, //add the array if none
 				}}, ps...)
 			}
 
@@ -204,7 +201,6 @@ func main() {
 			}
 			f = true
 
-			ctx := context.TODO()
 			cs := kubernetes.NewForConfigOrDie(conf)
 			pods, err := cs.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 			if err != nil {
@@ -281,21 +277,17 @@ func main() {
 	}()
 
 	s := http.Server{
-		Addr:    ":8443",
-		Handler: http.DefaultServeMux,
+		Addr:              ":8443",
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: 30 * time.Second,
 	}
 
-	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
 	go func() {
-		i := 0
-		for range ch {
-			i++
-			if i > 1 {
-				os.Exit(1)
-			}
-			s.Shutdown(context.Background())
-		}
+		// Shutdown listener
+		<-ctx.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.GetDuration("shutdown.timeout"))
+		defer cancel()
+		s.Shutdown(ctx)
 	}()
 
 	lg.Info("listening")

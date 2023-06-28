@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
@@ -16,7 +17,7 @@ var (
 func setupConfig() *viper.Viper {
 	cfg := viper.New()
 	cfg.AddConfigPath(".")
-	cfg.AddConfigPath("$HOME/ca-injector")
+	cfg.AddConfigPath("$HOME/.config")
 	cfg.AddConfigPath("/etc/ca-injector")
 
 	cfg.SetConfigName("ca-injector")
@@ -26,6 +27,8 @@ func setupConfig() *viper.Viper {
 
 	cfg.SetDefault("tls.key", "/cert/tls.key")
 	cfg.SetDefault("tls.crt", "/cert/tls.crt")
+	cfg.SetDefault("tls.ca.key", "ca.crt")
+	cfg.SetDefault("shutdown.timeout", 10*time.Second)
 
 	if err := cfg.ReadInConfig(); err != nil {
 		lg.WithError(err).Error("could not read initial config")
