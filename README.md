@@ -37,3 +37,10 @@ the bundle here is [trust-manager](https://github.com/cert-manager/trust-manager
 kubectl apply -f k8s.yaml
 kubectl apply -f mwh.yaml
 ```
+
+## Helm chart
+
+```bash
+helm repo add ca-injector https://microcumulus.github.io/ca-injector
+helm install ca-injector/ca-injector ca-injector
+```
