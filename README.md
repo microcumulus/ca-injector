@@ -15,7 +15,7 @@ This webhook does three things:
    is a CA bundle.
 1. Add this volume to all containers as a volumemount
 1. Add the `SSL_CERT_FILE` environment variable [respected by
-   OpenSSL](https://www.openssl.org/docs/man1.1.0/man3/SSL_CTX_set_default_verify_paths.html)
+   OpenSSL](https://www.openssl.org/docs/man3.1/man3/SSL_CTX_set_default_verify_paths.html)
    and most tls libraries.
 
 Just deploy this in your cluster, create CA bundles as e.g. `foo-crt` secret,
