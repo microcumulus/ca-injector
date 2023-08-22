@@ -1,0 +1,73 @@
+{{- if and .Values.admissionWebhooks.patch.enabled (not .Values.admissionWebhooks.certManager.enabled) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name:  {{ template "ca-injector.fullname" . }}-admission-patch
+  namespace: {{ template "ca-injector.namespace" . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+{{- with .Values.admissionWebhooks.patch.annotations }}
+{{ toYaml . | indent 4 }}
+{{- end }}   
+  labels:
+    app.kubernetes.io/name: {{ template "ca-injector.name" $ }}-admission-patch
+{{- include "ca-injector.labels" $ | indent 4 }}
+spec:
+  {{- if .Capabilities.APIVersions.Has "batch/v1alpha1" }}
+  # Alpha feature since k8s 1.12
+  ttlSecondsAfterFinished: 0
+  {{- end }}
+  template:
+    metadata:
+      name:  {{ template "ca-injector.fullname" . }}-admission-patch
+{{- with .Values.admissionWebhooks.patch.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+      labels:
+        app.kubernetes.io/name: {{ template "ca-injector.name" $ }}-admission-patch
+{{- include "ca-injector.labels" $ | indent 8 }}
+    spec:
+      {{- if .Values.admissionWebhooks.patch.priorityClassName }}
+      priorityClassName: {{ .Values.admissionWebhooks.patch.priorityClassName }}
+      {{- end }}
+      containers:
+        - name: patch
+          {{- if .Values.admissionWebhooks.patch.image.sha }}
+          image: {{ .Values.admissionWebhooks.patch.image.registry }}/{{ .Values.admissionWebhooks.patch.image.repository }}:{{ .Values.admissionWebhooks.patch.image.tag }}@sha256:{{ .Values.admissionWebhooks.patch.image.sha }}
+          {{- else }}
+          image: {{ .Values.admissionWebhooks.patch.image.registry }}/{{ .Values.admissionWebhooks.patch.image.repository }}:{{ .Values.admissionWebhooks.patch.image.tag }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.admissionWebhooks.patch.image.pullPolicy }}
+          args:
+            - patch
+            - --webhook-name={{ template "ca-injector.fullname" . }}-admission
+            - --namespace={{ template "ca-injector.namespace" . }}
+            - --secret-name={{ template "ca-injector.fullname" . }}-admission
+            - --patch-failure-policy={{ .Values.admissionWebhooks.failurePolicy }}
+          {{- with .Values.admissionWebhooks.patchWebhookJob }}
+          securityContext:
+          {{ toYaml .securityContext | nindent 12 }}
+          {{- end }}
+          resources:
+{{ toYaml .Values.admissionWebhooks.patch.resources | indent 12 }}
+      restartPolicy: OnFailure
+      serviceAccountName: {{ template "ca-injector.fullname" . }}-admission
+      {{- with .Values.admissionWebhooks.patch.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.admissionWebhooks.patch.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.admissionWebhooks.patch.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+{{- if .Values.admissionWebhooks.patch.securityContext }}
+      securityContext:
+{{ toYaml .Values.admissionWebhooks.patch.securityContext | indent 8 }}
+{{- end }}
+{{- end }}

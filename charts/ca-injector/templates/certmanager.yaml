@@ -1,0 +1,57 @@
+{{- if .Values.admissionWebhooks.certManager.enabled -}}
+{{- if not .Values.admissionWebhooks.certManager.issuerRef -}}
+# Create a selfsigned Issuer, in order to create a root CA certificate for
+# signing webhook serving certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ template "ca-injector.fullname" . }}-self-signed-issuer
+  namespace: {{ template "ca-injector.namespace" . }}
+spec:
+  selfSigned: {}
+---
+# Generate a CA Certificate used to sign certificates for the webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ template "ca-injector.fullname" . }}-root-cert
+  namespace: {{ template "ca-injector.namespace" . }}
+spec:
+  secretName: {{ template "ca-injector.fullname" . }}-root-cert
+  duration: {{ .Values.admissionWebhooks.certManager.rootCert.duration | default "43800h0m0s" | quote }}
+  issuerRef:
+    name: {{ template "ca-injector.fullname" . }}-self-signed-issuer
+  commonName: "ca.webhook.ca-injector"
+  isCA: true
+---
+# Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ template "ca-injector.fullname" . }}-root-issuer
+  namespace: {{ template "ca-injector.namespace" . }}
+spec:
+  ca:
+    secretName: {{ template "ca-injector.fullname" . }}-root-cert
+{{- end }}
+---
+# generate a server certificate for the apiservices to use
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ template "ca-injector.fullname" . }}-admission
+  namespace: {{ template "ca-injector.namespace" . }}
+spec:
+  secretName: {{ template "ca-injector.fullname" . }}-admission
+  duration: {{ .Values.admissionWebhooks.certManager.admissionCert.duration | default "8760h0m0s" | quote }}
+  issuerRef:
+    {{- if .Values.admissionWebhooks.certManager.issuerRef }}
+    {{- toYaml .Values.admissionWebhooks.certManager.issuerRef | nindent 4 }}
+    {{- else }}
+    name: {{ template "ca-injector.fullname" . }}-root-issuer
+    {{- end }}
+  dnsNames:
+  - {{ template "ca-injector.fullname" . }}
+  - {{ template "ca-injector.fullname" . }}.{{ template "ca-injector.namespace" . }}
+  - {{ template "ca-injector.fullname" . }}.{{ template "ca-injector.namespace" . }}.svc
+{{- end -}}

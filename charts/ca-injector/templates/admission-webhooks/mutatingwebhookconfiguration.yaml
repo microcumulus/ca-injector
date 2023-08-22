@@ -1,0 +1,68 @@
+{{- if .Values.admissionWebhooks.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name:  {{ template "ca-injector.fullname" . }}-admission
+{{- if .Values.admissionWebhooks.certManager.enabled }}
+  annotations:
+    certmanager.k8s.io/inject-ca-from: {{ printf "%s/%s-admission" (include "ca-injector.namespace" .) (include "ca-injector.fullname" .) | quote }}
+    cert-manager.io/inject-ca-from: {{ printf "%s/%s-admission" (include "ca-injector.namespace" .) (include "ca-injector.fullname" .) | quote }}
+{{- end }}
+  labels:
+    app.kubernetes.io/name: {{ template "ca-injector.name" $ }}-admission
+{{- include "ca-injector.labels" $ | indent 4 }}
+webhooks:
+  - name: ca-injector.microcumul.us
+    {{- if eq .Values.admissionWebhooks.failurePolicy "IgnoreOnInstallOnly" }}
+    failurePolicy: {{ .Release.IsInstall | ternary "Ignore" "Fail" }}
+    {{- else if .Values.admissionWebhooks.failurePolicy  }}
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
+    {{- else if .Values.admissionWebhooks.patch.enabled }}
+    failurePolicy: Ignore
+    {{- else }}
+    failurePolicy: Fail
+    {{- end }}
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - "*"
+        operations:
+          - CREATE
+        resources:
+          - pods
+    clientConfig:
+      service:
+        namespace: {{ template "ca-injector.namespace" . }}
+        name: {{ template "ca-injector.fullname" $ }}
+        path: /pods
+      {{- if and .Values.admissionWebhooks.caBundle (not .Values.admissionWebhooks.patch.enabled) (not .Values.admissionWebhooks.certManager.enabled) }}
+      caBundle: {{ .Values.admissionWebhooks.caBundle }}
+      {{- end }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: NoneOnDryRun
+    {{- if or .Values.denyNamespaces .Values.namespaces }}
+    namespaceSelector:
+      matchExpressions:
+      {{- if .Values.denyNamespaces }}
+      - key: kubernetes.io/metadata.name
+        operator: NotIn
+        values:
+        {{- range $namespace := mustUniq .Values.denyNamespaces }} 
+        - {{ $namespace }}
+        {{- end }}
+      {{- else if and .Values.namespaces .Values.namespaces.additional }}
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values:
+        {{- if and .Values.namespaces.releaseNamespace (default .Values.namespaces.releaseNamespace true) }}
+        {{- $namespace := printf "%s" (include "ca-injector.namespace" .) }}
+        - {{ $namespace }}
+        {{- end }}
+        {{- range $namespace := mustUniq .Values.namespaces.additional }} 
+        - {{ $namespace }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}
