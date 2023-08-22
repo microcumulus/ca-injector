@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -37,7 +36,7 @@ func (a admitFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	bs, err := ioutil.ReadAll(r.Body)
+	bs, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeErr(err, w)
 		return
