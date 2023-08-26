@@ -1,0 +1,102 @@
+{{- /* Defines the common configuration used by all webhook segments */}}
+{{- /* Copy just what we need to avoid expensive deepCopy */}}
+{{- define "whFailurePolicy" -}}
+  {{- if eq .Values.admissionWebhook.failurePolicy "IgnoreOnInstallOnly" -}}
+    {{ .Release.IsInstall | ternary "Ignore" "Fail" }}
+  {{- else if .Values.admissionWebhook.failurePolicy  -}}
+    {{ .Values.admissionWebhook.failurePolicy }}
+  {{- else if .Values.admissionWebhook.patch.enabled -}}
+    Ignore
+  {{- else -}}
+    Fail
+  {{- end -}}
+{{- end -}}
+{{- define "whCaBundle" -}}
+  {{- if and .Values.admissionWebhook.caBundle (not .Values.admissionWebhook.patch.enabled) (not .Values.admissionWebhook.certManager.enabled) -}}
+    {{ .Values.admissionWebhook.caBundle }}
+  {{- end -}}
+{{- end -}}
+{{- $whValues := dict
+  "fullname" (include "ca-injector.fullname" .)
+  "namespace" (include "ca-injector.namespace" .)
+  "failurePolicy" (include "whFailurePolicy" .)
+  "timeoutSeconds" .Values.admissionWebhook.timeoutSeconds
+  "caBundle" (include "whCaBundle" .) -}}
+{{- define "whCore" -}}
+- name: {{ .prefix }}ca-injector.zeiss.com
+  failurePolicy: {{ .failurePolicy }}
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    operations: ["CREATE"]
+    resources: ["pods"]
+  clientConfig:
+    service:
+      name: {{ .fullname }}
+      namespace: {{ .namespace }}
+      path: /pods
+      port: 443
+    {{- if .caBundle }}
+    caBundle: {{ .caBundle }}
+    {{- end }}
+  timeoutSeconds: {{ .timeoutSeconds }}
+  admissionReviewVersions: ["v1", "v1beta1"]
+  sideEffects: NoneOnDryRun
+{{- end -}}
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "ca-injector.fullname" . }}-admission
+  {{- if .Values.admissionWebhook.certManager.enabled }}
+  annotations:
+    certmanager.k8s.io/inject-ca-from: {{ printf "%s/%s-admission" (include "ca-injector.namespace" .) (include "ca-injector.fullname" .) | quote }}
+    cert-manager.io/inject-ca-from: {{ printf "%s/%s-admission" (include "ca-injector.namespace" .) (include "ca-injector.fullname" .) | quote }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}-admission
+    {{- include "ca-injector.labels" . | indent 4 }}
+webhooks:
+  {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
+  {{- include "whCore" (mergeOverwrite (deepCopy $whValues) (dict "prefix" "namespace.") ) | nindent 0 }}
+  namespaceSelector:
+    matchExpressions:
+    - key: ca-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: ca-injector.zeiss.com/inject
+      operator: NotIn
+      values:
+      - "false"
+
+  {{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
+  {{- include "whCore" (mergeOverwrite (deepCopy $whValues) (dict "prefix" "object.") ) | nindent 0 }}
+  namespaceSelector:
+    matchExpressions:
+    - key: ca-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: ca-injector.zeiss.com/inject
+      operator: In
+      values:
+      - "true"
+
+{{- if .Values.admissionWebhook.enableNamespacesByDefault }}
+  {{- /* Case 3: no labels at all */}}
+  {{- include "whCore" (mergeOverwrite (deepCopy $whValues) (dict "prefix" "auto.") )  | nindent 0 }}
+  namespaceSelector:
+    matchExpressions:
+    - key: ca-injection
+      operator: DoesNotExist
+    - key: "kubernetes.io/metadata.name"
+      operator: "NotIn"
+      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
+  objectSelector:
+    matchExpressions:
+    - key: ca-injector.zeiss.com/inject
+      operator: DoesNotExist
+{{- end }}

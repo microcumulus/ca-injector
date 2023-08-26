@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	label      = "microcumul.us/injectssl"
-	volumeName = "microcumulus-injected-ssl"
+	configMapAnnotation = "ca-injector.zeiss.com/configMap"
+	volumeName          = "ca-injectorzeisscom-ca-bundle"
 )
 
 // Type for less ugly jsonpatch
@@ -99,7 +99,7 @@ func main() {
 			"obj.GetObjectKind().GroupVersionKind()": obj.GetObjectKind().GroupVersionKind(),
 		})
 
-		if pod.Annotations[label] == "" {
+		if pod.Annotations[configMapAnnotation] == "" {
 			lg.Info("allowing")
 			return &admv1.AdmissionResponse{
 				Allowed: true,
@@ -121,8 +121,8 @@ func main() {
 			Path: "/spec/volumes/-",
 			Value: m{
 				"name": volumeName,
-				"secret": m{
-					"secretName": pod.Annotations[label],
+				"configMap": m{
+					"name": pod.Annotations[configMapAnnotation],
 				},
 			},
 		})
@@ -235,16 +235,16 @@ func main() {
 					}
 				}
 
-				secret := pod.Annotations[label]
-				if secret == "" {
-					lg.Debug("did not find annotation " + label)
+				configMap := pod.Annotations[configMapAnnotation]
+				if configMap == "" {
+					lg.Debug("did not find annotation " + configMapAnnotation)
 					continue
 				}
 
 				// Look for well-known volume in list of mounts
 				for _, vol := range pod.Spec.Volumes {
-					if vol.Secret != nil && vol.Secret.SecretName == secret && vol.Name == volumeName {
-						lg.Debug("found volume matching secret from annotation")
+					if vol.ConfigMap != nil && vol.ConfigMap.Name == configMap && vol.Name == volumeName {
+						lg.Debug("found volume matching config map from annotation")
 						continue items
 					}
 				}

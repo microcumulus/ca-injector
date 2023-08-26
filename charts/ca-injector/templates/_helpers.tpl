@@ -36,8 +36,8 @@ The longest name that gets created adds extra 19 characters, so truncation shoul
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: "{{ replace "+" "_" .Chart.AppVersion }}"
-app.kubernetes.io/part-of: {{ template "ca-injector.name" . }}
-helm.sh/chart: {{ template "ca-injector.chartref" . }}
+app.kubernetes.io/part-of: {{ include "ca-injector.name" . }}
+helm.sh/chart: {{ include "ca-injector.chartref" . }}
 {{- if .Values.commonLabels}}
 {{ toYaml .Values.commonLabels }}
 {{- end }}

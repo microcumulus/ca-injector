@@ -2,19 +2,19 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: {{ template "ca-injector.fullname" . }}
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}
+  namespace: {{ include "ca-injector.namespace" . }}
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-    {{- include "ca-injector.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+    {{- include "ca-injector.labels" . | indent 4 }}
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-      {{- include "ca-injector.labels" $ | nindent 6 }}
+      app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+      {{- include "ca-injector.labels" . | indent 6 }}
   egress:
   {{- if and .Values.networkPolicy.cilium .Values.networkPolicy.cilium.egress }}
-    {{ toYaml .Values.networkPolicy.cilium.egress | nindent 6 }}
+    {{- toYaml .Values.networkPolicy.cilium.egress | nindent 6 }}
   {{- else }}
   - toEntities:
     - kube-apiserver
@@ -22,11 +22,7 @@ spec:
   ingress:
   - toPorts:
     - ports:
-      {{- if .Values.tls.enabled }}
-      - port: {{ .Values.tls.internalPort | quote }}
-      {{- else }}
-      - port: "8080"
-      {{- end }}
+      - port: {{ .Values.internalPort | quote }}
         protocol: "TCP"
       rules:
         http:

@@ -1,47 +1,47 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "ca-injector.fullname" . }}
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}
+  namespace: {{ include "ca-injector.namespace" . }}
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-{{ include "ca-injector.labels" . | indent 4 }}
-{{- if .Values.labels }}
-{{ toYaml .Values.labels | indent 4 }}
-{{- end }}
-{{- if .Values.annotations }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+    {{- include "ca-injector.labels" . | indent 4 }}
+    {{- if .Values.labels }}
+    {{- toYaml .Values.labels | nindent 4 }}
+    {{- end }}
+  {{- if .Values.annotations }}
   annotations:
-{{ toYaml .Values.annotations | indent 4 }}
-{{- end }}
+    {{- toYaml .Values.annotations | nindent 4 }}
+  {{- end }}
 spec:
   replicas: 1
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ template "ca-injector.name" . }}
+      app.kubernetes.io/name: {{ include "ca-injector.name" . }}
       app.kubernetes.io/instance: {{ $.Release.Name | quote }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-{{ include "ca-injector.labels" . | indent 8 }}
-{{- if .Values.podLabels }}
-{{ toYaml .Values.podLabels | indent 8 }}
-{{- end }}
-{{- if .Values.podAnnotations }}
+        app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+        {{- include "ca-injector.labels" . | indent 8 }}
+        {{- if .Values.podLabels }}
+        {{- toYaml .Values.podLabels | nindent 8 }}
+        {{- end }}
+      {{- if .Values.podAnnotations }}
       annotations:
-{{ toYaml .Values.podAnnotations | indent 8 }}
-{{- end }}
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+      {{- end }}
     spec:
-    {{- if .Values.priorityClassName }}
+      {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
-    {{- end }}
-    {{- if .Values.imagePullSecrets }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{- include "ca-injector.imagePullSecrets" . | indent 8 }}
-    {{- end }}
+        {{- include "ca-injector.imagePullSecrets" . | indent 8 }}
+      {{- end }}
       containers:
-        - name: {{ template "ca-injector.name" . }}
+        - name: {{ include "ca-injector.name" . }}
           {{- if .Values.image.sha }}
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}@sha256:{{ .Values.image.sha }}"
           {{- else }}
@@ -49,41 +49,20 @@ spec:
           {{- end }}
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           args:
+            # TODO: Support log format and log level
             {{- if .Values.logFormat }}
             - --log-format={{ .Values.logFormat }}
             {{- end }}
             {{- if .Values.logLevel }}
             - --log-level={{ .Values.logLevel }}
             {{- end }}
-            {{- if .Values.denyNamespaces }}
-            - --deny-namespaces={{ tpl (.Values.denyNamespaces | join ",") $ }}
-            {{- end }}
-            {{- $namespace := printf "%s" (include "ca-injector.namespace" .) }}
-            {{- with $.Values.namespaces }}
-            {{- $namespaces := list }}
-            {{- if .releaseNamespace }}
-            {{- $namespaces = append $namespaces $namespace }}
-            {{- end }}
-            {{- if .additional }}
-            {{- range $ns := .additional }}
-            {{- $namespaces = append $namespaces (tpl $ns $) }}
-            {{- end }}
-            {{- end }}
-            - --namespaces={{ $namespaces | mustUniq | join "," }}
-            {{- end }}
           ports:
-            {{- if .Values.tls.enabled }}
-            - containerPort: {{ .Values.tls.internalPort }}
+            - containerPort: {{ .Values.internalPort }}
               name: https
-            {{- else }}
-            - containerPort: 8080
-              name: http
-            {{- end }}
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
-{{ toYaml .Values.containerSecurityContext | indent 12 }}
-{{- if .Values.tls.enabled }}
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           volumeMounts:
             - name: tls-secret
               mountPath: /cert
@@ -92,30 +71,29 @@ spec:
         - name: tls-secret
           secret:
             defaultMode: 420
-            secretName: {{ template "ca-injector.fullname" . }}-admission
-{{- end }}
-    {{- with .Values.dnsConfig }}
+            secretName: {{ include "ca-injector.fullname" . }}-admission
+      {{- with .Values.dnsConfig }}
       dnsConfig:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-{{- if .Values.securityContext }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.securityContext }}
       securityContext:
-{{ toYaml .Values.securityContext | indent 8 }}
-{{- end }}
-      serviceAccountName: {{ template "ca-injector.serviceAccountName" . }}
-{{- if .Values.hostNetwork }}
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ca-injector.serviceAccountName" . }}
+      {{- if .Values.hostNetwork }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-{{- end }}
-    {{- with .Values.nodeSelector }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.affinity }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
       affinity:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.tolerations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
-{{ toYaml . | indent 8 }}
-    {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

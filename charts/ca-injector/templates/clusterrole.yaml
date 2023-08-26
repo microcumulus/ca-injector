@@ -1,10 +1,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "ca-injector.fullname" . }}
+  name: {{ include "ca-injector.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-{{ include "ca-injector.labels" . | indent 4 }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+    {{- include "ca-injector.labels" . | indent 4 }}
 rules:
 - apiGroups:
   - ""

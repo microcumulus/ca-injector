@@ -2,11 +2,11 @@
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
-  name: {{ template "ca-injector.fullname" . }}
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}
+  namespace: {{ include "ca-injector.namespace" . }}
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-{{ include "ca-injector.labels" . | indent 4 }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+    {{- include "ca-injector.labels" . | indent 4 }}
 spec:
   {{- with .Values.verticalPodAutoscaler.recommenders }}
   recommenders:
@@ -14,7 +14,7 @@ spec:
   {{- end }}
   resourcePolicy:
     containerPolicies:
-    - containerName: {{ template "ca-injector.name" . }}
+    - containerName: {{ include "ca-injector.name" . }}
       {{- with .Values.verticalPodAutoscaler.controlledResources }}
       controlledResources:
         {{- toYaml . | nindent 8 }}
@@ -33,7 +33,7 @@ spec:
   targetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ template "ca-injector.fullname" . }}
+    name: {{ include "ca-injector.fullname" . }}
   {{- with .Values.verticalPodAutoscaler.updatePolicy }}
   updatePolicy:
     {{- toYaml . | nindent 4 }}

@@ -1,27 +1,23 @@
 {{- if and .Values.networkPolicy.enabled (eq .Values.networkPolicy.flavor "kubernetes") }}
-apiVersion: {{ template "ca-injector.networkPolicy.apiVersion" . }}
+apiVersion: {{ include "ca-injector.networkPolicy.apiVersion" . }}
 kind: NetworkPolicy
 metadata:
-  name: {{ template "ca-injector.fullname" . }}
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}
+  namespace: {{ include "ca-injector.namespace" . }}
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" . }}
-    {{- include "ca-injector.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}
+    {{- include "ca-injector.labels" . | indent 4 }}
 spec:
   egress: 
-    - {}
+  - {}
   ingress:
-    - ports:
-      {{- if .Values.tls.enabled }}
-      - port: {{ .Values.tls.internalPort }}
-      {{- else }}
-      - port: 8080
-      {{- end }}
+  - ports:
+    - port: {{ .Values.internalPort }}
   policyTypes:
-    - Egress
-    - Ingress
+  - Egress
+  - Ingress
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: {{ template "ca-injector.name" . }}
+      app.kubernetes.io/name: {{ include "ca-injector.name" . }}
       app.kubernetes.io/instance: {{ $.Release.Name | quote }}
 {{- end }}

@@ -1,14 +1,14 @@
-{{- if and .Values.enabled .Values.admissionWebhooks.patch.enabled (not .Values.admissionWebhooks.certManager.enabled) }}
+{{- if and .Values.enabled .Values.admissionWebhook.patch.enabled (not .Values.admissionWebhook.certManager.enabled) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name:  {{ template "ca-injector.fullname" . }}-admission
+  name:  {{ include "ca-injector.fullname" . }}-admission
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
   labels:
-    app.kubernetes.io/name: {{ template "ca-injector.name" $ }}-admission
-{{- include "ca-injector.labels" $ | indent 4 }}
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}-admission
+    {{- include "ca-injector.labels" . | indent 4 }}
 rules:
   - apiGroups:
       - admissionregistration.k8s.io

@@ -1,0 +1,21 @@
+{{- if and .Values.admissionWebhook.patch.enabled (not .Values.admissionWebhook.certManager.enabled) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name:  {{ include "ca-injector.fullname" . }}-admission
+  namespace: {{ include "ca-injector.namespace" . }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade,post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: {{ include "ca-injector.name" . }}-admission
+    {{- include "ca-injector.labels" . | indent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+{{- end }}

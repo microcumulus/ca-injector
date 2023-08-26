@@ -1,12 +1,12 @@
-{{- if .Values.admissionWebhooks.certManager.enabled -}}
-{{- if not .Values.admissionWebhooks.certManager.issuerRef -}}
+{{- if .Values.admissionWebhook.certManager.enabled -}}
+{{- if not .Values.admissionWebhook.certManager.issuerRef -}}
 # Create a selfsigned Issuer, in order to create a root CA certificate for
 # signing webhook serving certificates
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ template "ca-injector.fullname" . }}-self-signed-issuer
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}-self-signed-issuer
+  namespace: {{ include "ca-injector.namespace" . }}
 spec:
   selfSigned: {}
 ---
@@ -14,13 +14,13 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ template "ca-injector.fullname" . }}-root-cert
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}-root-cert
+  namespace: {{ include "ca-injector.namespace" . }}
 spec:
-  secretName: {{ template "ca-injector.fullname" . }}-root-cert
-  duration: {{ .Values.admissionWebhooks.certManager.rootCert.duration | default "43800h0m0s" | quote }}
+  secretName: {{ include "ca-injector.fullname" . }}-root-cert
+  duration: {{ .Values.admissionWebhook.certManager.rootCert.duration | default "43800h0m0s" | quote }}
   issuerRef:
-    name: {{ template "ca-injector.fullname" . }}-self-signed-issuer
+    name: {{ include "ca-injector.fullname" . }}-self-signed-issuer
   commonName: "ca.webhook.ca-injector"
   isCA: true
 ---
@@ -28,30 +28,30 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ template "ca-injector.fullname" . }}-root-issuer
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}-root-issuer
+  namespace: {{ include "ca-injector.namespace" . }}
 spec:
   ca:
-    secretName: {{ template "ca-injector.fullname" . }}-root-cert
+    secretName: {{ include "ca-injector.fullname" . }}-root-cert
 {{- end }}
 ---
 # generate a server certificate for the apiservices to use
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ template "ca-injector.fullname" . }}-admission
-  namespace: {{ template "ca-injector.namespace" . }}
+  name: {{ include "ca-injector.fullname" . }}-admission
+  namespace: {{ include "ca-injector.namespace" . }}
 spec:
-  secretName: {{ template "ca-injector.fullname" . }}-admission
-  duration: {{ .Values.admissionWebhooks.certManager.admissionCert.duration | default "8760h0m0s" | quote }}
+  secretName: {{ include "ca-injector.fullname" . }}-admission
+  duration: {{ .Values.admissionWebhook.certManager.admissionCert.duration | default "8760h0m0s" | quote }}
   issuerRef:
-    {{- if .Values.admissionWebhooks.certManager.issuerRef }}
-    {{- toYaml .Values.admissionWebhooks.certManager.issuerRef | nindent 4 }}
+    {{- if .Values.admissionWebhook.certManager.issuerRef }}
+    {{- toYaml .Values.admissionWebhook.certManager.issuerRef | nindent 4 }}
     {{- else }}
-    name: {{ template "ca-injector.fullname" . }}-root-issuer
+    name: {{ include "ca-injector.fullname" . }}-root-issuer
     {{- end }}
   dnsNames:
-  - {{ template "ca-injector.fullname" . }}
-  - {{ template "ca-injector.fullname" . }}.{{ template "ca-injector.namespace" . }}
-  - {{ template "ca-injector.fullname" . }}.{{ template "ca-injector.namespace" . }}.svc
+  - {{ include "ca-injector.fullname" . }}
+  - {{ include "ca-injector.fullname" . }}.{{ include "ca-injector.namespace" . }}
+  - {{ include "ca-injector.fullname" . }}.{{ include "ca-injector.namespace" . }}.svc
 {{- end -}}
