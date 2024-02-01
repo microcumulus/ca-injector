@@ -170,6 +170,49 @@ func main() {
 			patch = append(patch, ps...)
 		}
 
+		for i, ctr := range pod.Spec.InitContainers {
+			ps := []p{{
+				Op:   "add",
+				Path: fmt.Sprintf("/spec/initContainers/%d/env/-", i),
+				Value: m{
+					"name":  "SSL_CERT_FILE",
+					"value": sslFileName,
+				},
+			}, {
+				Op:   "add",
+				Path: fmt.Sprintf("/spec/initContainers/%d/env/-", i),
+				Value: m{
+					"name":  "NODE_EXTRA_CA_CERTS",
+					"value": sslFileName,
+				},
+			}, {
+				Op:   "add",
+				Path: fmt.Sprintf("/spec/initContainers/%d/volumeMounts/-", i),
+				Value: m{
+					"name":      volumeName,
+					"mountPath": "/ssl",
+					"readOnly":  true,
+				},
+			}}
+
+			if ctr.Env == nil {
+				ps = append([]p{{
+					Op:    "add",
+					Path:  fmt.Sprintf("/spec/initContainers/%d/env", i),
+					Value: []any{}, //add the array if none
+				}}, ps...)
+			}
+			if len(ctr.VolumeMounts) == 0 {
+				ps = append([]p{{
+					Op:    "add",
+					Path:  fmt.Sprintf("/spec/initContainers/%d/volumeMounts", i),
+					Value: []any{}, //add the array if none
+				}}, ps...)
+			}
+
+			patch = append(patch, ps...)
+		}
+
 		ctrPatches.WithLabelValues(ar.Request.Name).Inc()
 		lg.WithField("patch", patch).Info("patching")
 
