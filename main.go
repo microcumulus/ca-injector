@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -28,8 +27,9 @@ import (
 )
 
 const (
-	label      = "microcumul.us/injectssl"
-	volumeName = "microcumulus-injected-ssl"
+	label          = "microcumul.us/injectssl"
+	mountPathLabel = "microcumul.us/injectssl-mount-path"
+	volumeName     = "microcumulus-injected-ssl"
 )
 
 // Type for less ugly jsonpatch
@@ -71,12 +71,12 @@ func main() {
 
 	go func() {
 		time.Sleep(time.Until(cert.NotAfter))
-		ioutil.WriteFile("/dev/termination-log", []byte("shutting down due to expired certificate, hoping it has been refreshed"), 0600)
+		os.WriteFile("/dev/termination-log", []byte("shutting down due to expired certificate, hoping it has been refreshed"), 0600)
 		lg.Fatal("cert expired; shutting down")
 	}()
 
-	sslFileName := path.Join("/ssl", cfg.GetString("tls.ca.key"))
-	lg.WithField("file", sslFileName).Info("generated ssl filename")
+	defaultSSLFileName := path.Join("/ssl", cfg.GetString("tls.ca.key"))
+	lg.WithField("file", defaultSSLFileName).Info("generated ssl filename")
 
 	http.Handle("/metrics", promhttp.Handler())
 
@@ -127,6 +127,12 @@ func main() {
 			},
 		})
 
+		sslFileName := defaultSSLFileName
+		if pod.Annotations[mountPathLabel] != "" {
+			sslFileName = path.Join(pod.Annotations[mountPathLabel], cfg.GetString("tls.ca.key"))
+		}
+		sslPath := path.Dir(sslFileName)
+
 		for i, ctr := range pod.Spec.Containers {
 			ps := []p{{
 				Op:   "add",
@@ -147,7 +153,7 @@ func main() {
 				Path: fmt.Sprintf("/spec/containers/%d/volumeMounts/-", i),
 				Value: m{
 					"name":      volumeName,
-					"mountPath": "/ssl",
+					"mountPath": sslPath,
 					"readOnly":  true,
 				},
 			}}
@@ -296,7 +302,7 @@ func main() {
 }
 
 func getFirstExpiringCert(r io.Reader) (*x509.Certificate, error) {
-	bs, err := ioutil.ReadAll(r)
+	bs, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("error getting bytes for cert: %w", err)
 	}
