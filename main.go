@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,7 +29,8 @@ import (
 
 const (
 	label          = "microcumul.us/injectssl"
-	mountPathLabel = "microcumul.us/injectssl-mount-path"
+	labelMountPath = "injectssl.microcumul.us/mount-path"
+	labelExtraEnvs = "injectssl.microcumul.us/extra-envs"
 	volumeName     = "microcumulus-injected-ssl"
 )
 
@@ -128,8 +130,8 @@ func main() {
 		})
 
 		sslFileName := defaultSSLFileName
-		if pod.Annotations[mountPathLabel] != "" {
-			sslFileName = path.Join(pod.Annotations[mountPathLabel], cfg.GetString("tls.ca.key"))
+		if pod.Annotations[labelMountPath] != "" {
+			sslFileName = path.Join(pod.Annotations[labelMountPath], cfg.GetString("tls.ca.key"))
 		}
 		sslPath := path.Dir(sslFileName)
 
@@ -157,6 +159,20 @@ func main() {
 					"readOnly":  true,
 				},
 			}}
+
+			// Extra envs specified by user
+			if pod.Annotations[labelExtraEnvs] != "" {
+				for _, env := range strings.Split(pod.Annotations[labelExtraEnvs], ",") {
+					ps = append(ps, p{
+						Op:   "add",
+						Path: fmt.Sprintf("/spec/containers/%d/env/-", i),
+						Value: m{
+							"name":  env,
+							"value": sslFileName,
+						},
+					})
+				}
+			}
 
 			if ctr.Env == nil {
 				ps = append([]p{{
