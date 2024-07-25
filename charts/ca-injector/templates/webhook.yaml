@@ -23,4 +23,5 @@ webhooks:
       namespace: {{ .Release.Namespace }} 
       name: {{ include "ca-injector.fullname" . }}
       path: /pods
+      port: {{ .Values.service.port }}
 --- 
