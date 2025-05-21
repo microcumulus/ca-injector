@@ -31,13 +31,6 @@ I highly suggest using this with
 experience across namespaces. Another great tool that may work well for building
 the bundle here is [trust-manager](https://github.com/cert-manager/trust-manager).
 
-# Installation
-
-```bash
-kubectl apply -f k8s.yaml
-kubectl apply -f mwh.yaml
-```
-
 ## Helm chart
 
 ```bash

@@ -86,10 +86,8 @@ func main() {
 		var pod corev1.Pod
 		obj, _, err := codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, &pod)
 		if err != nil {
-			if err != nil {
-				lg.WithError(err).Error("could not deserialize pod spec")
-				return nil, err
-			}
+			lg.WithError(err).Error("could not deserialize pod spec")
+			return nil, err
 		}
 
 		lg := lg.WithFields(logrus.Fields{

@@ -27,6 +27,18 @@ var (
 	codecs = serializer.NewCodecFactory(scheme)
 )
 
+func objFunc[T runtime.Object](f func(T) (*admv1.AdmissionResponse, error)) admitFunc {
+	return func(ar admv1.AdmissionReview) (*admv1.AdmissionResponse, error) {
+		var o T
+		_, _, err := codecs.UniversalDeserializer().Decode(ar.Request.Object.Raw, nil, o)
+		if err != nil {
+			return nil, err
+		}
+
+		return f(o)
+	}
+}
+
 type admitFunc func(admv1.AdmissionReview) (*admv1.AdmissionResponse, error)
 
 func (a admitFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
